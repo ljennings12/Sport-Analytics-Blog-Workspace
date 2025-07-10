@@ -318,3 +318,283 @@ statcast_filter |>
     title = "Number of Pitches in a PA"
   ) +
   mlb_theme()
+
+
+
+# Classify a Long At-Bat --------------------------------------------------
+
+# data
+at_bat_length <- {
+  statcast_filter |> 
+    
+    # filter
+    filter(PA == 1) |> 
+    
+    # mutate
+    mutate(
+      # at-bat length
+      AB_length = case_when(
+        pitch_number %in% c(1:3) ~ "Short",
+        pitch_number %in% c(4:6) ~ "Average",
+        pitch_number %in% c(7:16) ~ "Long",
+      ),
+      
+      # turn into factor
+      AB_length = factor(
+        # column
+        AB_length,
+        # levels
+        levels = c(
+          "Short", "Average", "Long"
+        )
+      )
+    ) |> 
+      
+    # group by batter and season
+    group_by(
+      AB_length
+    ) |> 
+    
+    # hitter summary stats
+    summarize(
+      # counting stats
+      n_pitches = n(),
+      n_swings = sum(swing, na.rm = TRUE),
+      n_miss = sum(miss, na.rm = TRUE),
+      swing_strikes = sum(swing == 1 & miss == 1, na.rm = TRUE),
+      n_in_zone_swing = sum(swing == 1 & zone %in% c(1:9), na.rm = TRUE),
+      n_out_zone_swing = sum(swing == 1 & !(zone %in% c(1:9)), na.rm = TRUE),
+      n_in_zone_contact = sum(swing == 1 & miss == 0 & zone %in% c(1:9), na.rm = TRUE),
+      n_out_zone_contact = sum(swing == 1 & miss == 0 & !(zone %in% c(1:9)), na.rm = TRUE),
+      n_in_zone_swing_and_miss = sum(swing == 1 & miss == 1 & zone %in% c(1:9), na.rm = TRUE),
+      n_out_zone_swing_and_miss = sum(swing == 1 & miss == 1 & !(zone %in% c(1:9)), na.rm = TRUE),
+      n_pitch_in_zone = sum(zone %in% c(1:9), na.rm = TRUE),
+      n_pitch_out_zone = sum(!(zone %in% c(1:9)), na.rm = TRUE),
+      
+      # number of plate appearances
+      PA = sum(PA, na.rm = TRUE),
+      
+      # metrics
+      
+      ## expected batting average
+      xBA = mean(estimated_ba_using_speedangle, na.rm = TRUE),
+      
+      ## xwOBA
+      xwOBA = mean(estimated_woba_using_speedangle, na.rm = TRUE),
+      
+      # wOBA
+      wOBA = mean(wOBA, na.rm = TRUE),
+      
+      ## launch speed
+      launch_speed = mean(
+        launch_speed[!(is.na(hit_location))], 
+        na.rm = TRUE
+      ),
+      
+      ## launch angle
+      launch_angle = mean(
+        launch_angle[!(is.na(hit_location))], 
+        na.rm = TRUE
+      )
+      
+    ) |> 
+    
+    # calculate common baseball stats
+    mutate(
+      # Zone %
+      zone_pct = round(n_pitch_in_zone / n_pitches, 6) * 100,
+      
+      # Zone Swing %
+      zone_swing_pct = round(n_in_zone_swing / n_pitch_in_zone, 6) * 100,
+      
+      # Zone Contact %
+      zone_contact_pct = round(n_in_zone_contact / n_in_zone_swing, 6) * 100,
+      
+      # Zone Swing and Miss %
+      zone_swing_and_miss_pct = round(n_in_zone_swing_and_miss / n_in_zone_swing, 6) * 100,
+      
+      # Chase %
+      chase_pct = round(n_out_zone_swing / n_pitch_out_zone, 6) * 100,
+      
+      # Chase Contact %
+      chase_contact_pct = round(n_out_zone_contact / n_out_zone_swing, 6) * 100,
+      
+      # Chase swing and miss pct
+      chase_swing_and_miss_pct = round(n_out_zone_swing_and_miss / n_out_zone_swing, 6) * 100,
+      
+      # Swing %
+      swing_pct = round(n_swings / n_pitches, 6) * 100,
+      
+      # Whiff %
+      whiff_pct = round(n_miss / n_swings, 6) * 100,
+      
+      # Swing and miss Rate
+      swing_and_miss_pct = round(swing_strikes / n_pitches, 6) * 100
+    ) |> 
+    
+    # ungroup
+    ungroup()
+}
+  
+  
+## table
+at_bat_length |> 
+  # select
+  select(
+    AB_length, 
+    xBA:swing_and_miss_pct
+  ) |> 
+  # gt table
+  gt(
+    # rowname column
+    rowname_col = "AB_length"
+  ) |> 
+  # align columns
+  cols_align(
+    align = "center"
+  ) |> 
+  # label columns
+  # cols_label(
+  #   ride_name = "Ride Name",
+  #   mean_posted_wait = "Avg Posted Wait Time",
+  #   sd_posted_wait = "SD of Posted Wait Time",
+  #   mean_actual_wait = "Avg Actual Wait Time",
+  #   sd_actual_wait = "SD of Actual Wait Time",
+  #   difference = "Difference of Posted and Actual Wait Time"
+  # ) |> 
+  # format numerical columns
+  fmt_number(
+    columns = c(
+      xBA,
+      xwOBA
+    ),
+    decimals = 3
+  ) |> 
+  # format numerical columns
+  fmt_number(
+    columns = c(
+      launch_speed:swing_and_miss_pct
+    ),
+    decimals = 2
+  ) |> 
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      xwOBA
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      wOBA
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      launch_speed
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      zone_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      zone_swing_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      chase_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("goldenrod", "white", "dodgerblue4"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      chase_contact_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      swing_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("dodgerblue4", "white", "goldenrod"),
+      domain = NULL
+    )
+  ) |>
+  # add color
+  data_color(
+    # columns
+    columns = c(
+      whiff_pct
+    ),
+    # scale
+    fn = scales::col_numeric(
+      palette = c("goldenrod", "white", "dodgerblue4"),
+      domain = NULL
+    )
+  ) |>
+  # title and subtitle
+  tab_header(
+    title = md("**How do Batters Perform as the At-Bat Gets Longer?**"),
+    subtitle = md("*Data: Baseball Savant*")
+  ) |> 
+  # footnote
+  tab_footnote(
+    footnote = md("*Gold = 'Good'<br>
+                  Blue = 'Bad'*")
+  ) |> 
+  # theme
+  gtExtras::gt_theme_espn()
+

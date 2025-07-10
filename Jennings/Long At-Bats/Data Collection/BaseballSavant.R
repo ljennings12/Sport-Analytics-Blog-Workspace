@@ -172,6 +172,7 @@ statcast_filter <- {
 ## calculate for each pitch number in at-bat
 statcast_pitch_num <- {
   statcast_filter |> 
+    
     # group by batter and season
     group_by(
       pitch_number
