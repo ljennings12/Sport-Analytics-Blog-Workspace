@@ -1,0 +1,26 @@
+---
+title: "Proj1"
+output: html_document
+---
+
+```{r}
+#install.packages("baseballr")
+library(baseballr)
+testdata <- baseballr::bref_daily_batter("05-01-2025", "05-09-2025")
+#not helpful
+testdata2 = baseballr::fg_batter_leaders(startseason = "2024", endseason = "2024")
+```
+
+```{r}
+library(dplyr)
+library(tidyverse)
+wpa_data <- baseballr::fg_batter_leaders(startseason = "2025", endseason = "2025")
+cond_wpa_data <- wpa_data |> 
+  filter(PA >=150) |> 
+  select(team_name, PlayerName, PA, OPS, wRC_plus, xwOBA, WAR, WPA, WPA_LI, Clutch)
+
+library(ggplot2)
+ggplot(data = cond_wpa_data) +
+  geom_point(aes(x=wRC_plus, y=WPA_LI))
+```
+
