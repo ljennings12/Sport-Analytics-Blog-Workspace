@@ -14,13 +14,94 @@ testdata2 = baseballr::fg_batter_leaders(startseason = "2024", endseason = "2024
 ```{r}
 library(dplyr)
 library(tidyverse)
+library(plotly)
+library(ggplot2)
 wpa_data <- baseballr::fg_batter_leaders(startseason = "2025", endseason = "2025")
 cond_wpa_data <- wpa_data |> 
   filter(PA >=150) |> 
   select(team_name, PlayerName, PA, OPS, wRC_plus, xwOBA, WAR, WPA, WPA_LI, Clutch)
 
-library(ggplot2)
-ggplot(data = cond_wpa_data) +
-  geom_point(aes(x=wRC_plus, y=WPA_LI))
+highlight_names <- c("Kyle Tucker", "Pete Crow-Armstrong", "Juan Soto", "James Wood", "Corbin Carroll", "Fernando Tatis Jr.", "Andy Pages", "Ronald Acu\u00f1a Jr.")
+
+cond_wpa_data$highlight <- ifelse(cond_wpa_data$PlayerName %in% highlight_names, "Highlight", "Other")
+
+```
+
+
+```{r}
+#WPA vs. wRC+
+wpa_plot = ggplot(data = cond_wpa_data, 
+           aes(x = wRC_plus, y = WPA_LI, text = paste0(
+      PlayerName, "<br>",
+      "wRC+: ", round(wRC_plus, digits=0), "<br>",
+      "WPA/LI: ", round(WPA_LI, digits=2)
+    ), color=highlight, alpha = 0.7)) +
+  geom_point() +
+  labs(x = "wRC+", y = "Context Neutral Wins (WPA/LI)", 
+       title = "Win Probability Added Relative to Others")+
+  geom_vline(xintercept = 100, linewidth=.5, color = "black") +
+  geom_hline(yintercept = 0, linewidth=.5, color = "black")+
+  scale_color_manual(values = c("Highlight" = "blue", "Other" = "black"))+
+  theme(legend.position = "none")
+
+
+ggplotly(wpa_plot, tooltip = "text")
+
+```
+
+```{r}
+wpa_plot2 = ggplot(data = cond_wpa_data, 
+           aes(x = WAR, y = WPA_LI, text = paste0(
+      PlayerName, "<br>",
+      "WAR: ", round(WAR, digits=1), "<br>",
+      "WPA/LI: ", round(WPA_LI, digits=2)
+    ), color=highlight, alpha = 0.7)) +
+  geom_point() +
+  labs(x = "WAR", y = "Context Neutral Wins (WPA/LI)", 
+       title = "Win Probability Added Relative to Others")+
+  geom_vline(xintercept = mean(cond_wpa_data$WAR), linewidth=.5, color = "black") +
+  geom_hline(yintercept = 0, linewidth=.5, color = "black")+
+  scale_color_manual(values = c("Highlight" = "blue", "Other" = "black"))+
+  theme(legend.position = "none")
+ggplotly(wpa_plot2, tooltip = "text")
+cor(cond_wpa_data$WAR, cond_wpa_data$WPA_LI)
+```
+
+```{r}
+#Clutch vs. wRC+
+clutch_plot = ggplot(data = cond_wpa_data, 
+           aes(x = wRC_plus, y = Clutch, text = paste0(
+      PlayerName, "<br>",
+      "wRC+: ", round(wRC_plus, digits=0), "<br>",
+      "Clutch: ", round(Clutch, digits=2)
+    ))) +
+  geom_point() +
+  labs(x = "wRC+", y = "Clutch", 
+       title = "Clutch Performance Relative to Themselves")+
+  geom_vline(xintercept = 100, linewidth=.5, color = "black") +
+  geom_hline(yintercept = 0, linewidth=.5, color = "black")
+ggplotly(clutch_plot, tooltip = "text")
+```
+
+```{r}
+#Clutch vs. WAR
+clutch_plot2 = ggplot(data = cond_wpa_data, 
+           aes(x = WAR, y = Clutch, text = paste0(
+      PlayerName, "<br>",
+      "WAR: ", round(WAR, digits=1), "<br>",
+      "Clutch: ", round(Clutch, digits=2)
+    ))) +
+  geom_point() +
+  labs(x = "WAR", y = "Clutch", 
+       title = "Clutch Performance Relative to Themselves")+
+  geom_vline(xintercept = mean(cond_wpa_data$WAR), linewidth=.5, color = "black") +
+  geom_hline(yintercept = 0, linewidth=.5, color = "black")
+ggplotly(clutch_plot2, tooltip = "text")
+cor(cond_wpa_data$WAR, cond_wpa_data$WPA_LI)
+
+```
+
+```{r}
+subplot(wpa_plot, wpa_plot2, nrows = 1, shareY = TRUE, shareX = FALSE)
 ```
 
